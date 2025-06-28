@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Download Portal</title>
+  <style>
+    /* --- THEME AND BASE STYLES --- */
+    :root {
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+      --primary: #3399ff;
+      --border-radius: 6px;
+      --bg-color: #f7f7f7;
+      --card-bg: #fff;
+      --text-color: #212121;
+      --muted-color: #757575;
+    }
+    html {
+      box-sizing: border-box; /* Ensures padding/borders are included in element's total width/height */
+    }
+    *, *:before, *:after {
+      box-sizing: inherit;
+    }
+    /* This body style aligns content to the top of the page, which is ideal for embedding. */
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* --- LAYOUT AND CARD STYLES --- */
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+    .card {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+    h1, h2 {
+      text-align: center;
+      margin-top: 0;
+    }
+
+    /* --- FORM ELEMENTS --- */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      padding: 0.85rem;
+      border: none;
+      border-radius: var(--border-radius);
+      background-color: var(--primary);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover:not(:disabled) {
+      background-color: #2685e6;
+    }
+    button:disabled {
+      background-color: #b0b0b0;
+      cursor: wait;
+    }
+
+    /* --- UI STATES AND MESSAGES --- */
+    .hidden {
+      display: none;
+    }
+    .message {
+      text-align: center;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: var(--border-radius);
+    }
+    .error {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    .success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    .file-info {
+      text-align: center;
+    }
+    .file-info p {
+      font-size: 1.1rem;
+      margin: 0.5rem 0 1.5rem;
+    }
+    .file-info span {
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    /* --- ADMIN DASHBOARD STYLES --- */
+    #adminDashboard {
+      max-width: 800px;
+    }
+    #adminDashboard table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+    }
+    #adminDashboard th, #adminDashboard td {
+      text-align: left;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
+    #adminDashboard th {
+      font-weight: 600;
+    }
+    #adminAddForm {
+      border-top: 2px solid #eee;
+      padding-top: 1.5rem;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- This container holds all user-facing views -->
+  <div class="container" id="main-container">
+    <div class="card">
+      <h1 id="portal-title">File Download Portal</h1>
+
+      <!-- View 1: Initial form for entering a download code -->
+      <div id="userView">
+        <form id="codeForm">
+          <div class="form-group">
+            <label for="downloadCode">Download Code</label>
+            <input type="text" id="downloadCode" name="downloadCode" maxlength="6" required>
+          </div>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+
+      <!-- View 2: Shown after entering 'admin' to request a password -->
+      <div id="adminPasswordView" class="hidden">
+        <form id="adminPasswordForm">
+          <div class="form-group">
+            <label for="adminPassword">Admin Password</label>
+            <input type="password" id="adminPassword" name="adminPassword" required>
+          </div>
+          <button type="submit">Login</button>
+        </form>
+      </div>
+
+      <!-- View 3: Shown when a valid code is entered, readying the download -->
+      <div id="fileReadyView" class="hidden">
+        <div class="file-info">
+          <p>Your file is ready to download:</p>
+          <p><span id="fileName"></span></p>
+          <button id="downloadButton">Download File</button>
+        </div>
+      </div>
+      
+      <!-- A shared message area for feedback (errors, success messages) -->
+      <div id="message" class="message hidden"></div>
+    </div>
+  </div>
+
+  <!-- View 4: The Admin Dashboard, shown after successful admin login -->
+  <div class="container hidden" id="adminDashboard">
+    <div class="card">
+      <h1>Admin Dashboard</h1>
+      <h2>Active Downloads</h2>
+      <table id="activeDownloadsTable">
+        <thead><tr><th>Code</th><th>File Name</th><th>Created</th></tr></thead>
+        <tbody><!-- Data will be populated by JavaScript --></tbody>
+      </table>
+      <div id="adminAddForm">
+        <h2>Add New Download</h2>
+        <form id="addDownloadForm">
+          <div class="form-group">
+            <label for="newFileName">File Name (for display)</label>
+            <input type="text" id="newFileName" required>
+          </div>
+          <div class="form-group">
+            <label for="newFileUrl">Google Drive File URL</label>
+            <input type="text" id="newFileUrl" required>
+          </div>
+          <button type="submit">Create New Download</button>
+        </form>
+      </div>
+      <!-- A dedicated message area for admin actions -->
+      <div id="adminMessage" class="message hidden"></div>
+    </div>
+  </div>
+
+<script>
+  /**
+   * @fileoverview This is the client-side JavaScript for the File Download Portal.
+   * It handles all UI rendering, user interaction, and communication with the
+   * Google Apps Script backend via the `google.script.run` API.
+   */
+
+  // --- DOM Elements & Global State ---
+  const codeForm = document.getElementById('codeForm');
+  const downloadCodeInput = document.getElementById('downloadCode');
+  const messageDiv = document.getElementById('message');
+  const userView = document.getElementById('userView');
+  const adminPasswordView = document.getElementById('adminPasswordView');
+  const fileReadyView = document.getElementById('fileReadyView');
+  const adminDashboard = document.getElementById('adminDashboard');
+  const adminPasswordForm = document.getElementById('adminPasswordForm');
+  const addDownloadForm = document.getElementById('addDownloadForm');
+  const adminMessage = document.getElementById('adminMessage');
+  const activeDownloadsTableBody = document.querySelector('#activeDownloadsTable tbody');
+  
+  // Stores the currently validated code to be used for the download action.
+  let currentValidCode = '';
+
+  // --- Event Listeners ---
+
+  // Handles submission of the user's download code or the 'admin' keyword.
+  codeForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const code = downloadCodeInput.value.trim();
+    if (code.toLowerCase() === 'admin') {
+      showView('adminPassword');
+    } else {
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(handleCodeCheckSuccess)
+        .withFailureHandler(handleFailure)
+        .checkCode(code);
+    }
+  });
+
+  // Handles submission of the admin password.
+  adminPasswordForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const password = document.getElementById('adminPassword').value;
+    setLoading(true);
+    google.script.run
+      .withSuccessHandler(handleAdminLoginSuccess)
+      .withFailureHandler(handleFailure)
+      .checkAdminPassword(password);
+  });
+
+  // Triggers the file download and finalizes the code on the backend.
+  document.getElementById('downloadButton').addEventListener('click', () => {
+    setLoading(true);
+    google.script.run
+      .withSuccessHandler(handleDownloadSuccess)
+      .withFailureHandler(handleFailure)
+      .getDownloadLinkAndFinalize(currentValidCode);
+  });
+
+  // Handles the creation of a new download link from the admin dashboard.
+  addDownloadForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const fileInfo = {
+      fileName: document.getElementById('newFileName').value.trim(),
+      fileUrl: document.getElementById('newFileUrl').value.trim()
+    };
+    setLoading(true, true); // Use admin loading state
+    google.script.run
+      .withSuccessHandler(handleAddDownloadSuccess)
+      .withFailureHandler(handleFailure)
+      .addDownload(fileInfo);
+  });
+
+  // --- Server Call Handlers (Callbacks for google.script.run) ---
+
+  // On successful code validation, reveals the download button and file name.
+  function handleCodeCheckSuccess(response) {
+    setLoading(false);
+    if (response.success) {
+      currentValidCode = downloadCodeInput.value.trim();
+      document.getElementById('fileName').textContent = response.fileName;
+      showView('fileReady');
+    } else {
+      showMessage(response.error, 'error');
+    }
+  }
+
+  // On successful admin login, shows the dashboard and fetches its data.
+  function handleAdminLoginSuccess(response) {
+    setLoading(false);
+    if (response.success) {
+      showView('adminDashboard');
+      loadAdminData();
+    } else {
+      showMessage(response.error, 'error');
+    }
+  }
+
+  // Fetches and populates the admin table with active download codes.
+  function loadAdminData() {
+    setLoading(true, true);
+    google.script.run
+      .withSuccessHandler(populateAdminTable)
+      .withFailureHandler(handleFailure)
+      .getActiveDownloads();
+  }
+
+  /**
+   * Populates the admin table with data received from the server.
+   * This function is robustly written to handle empty data and invalid dates.
+   * @param {Array<Array<string>>} data - A 2D array representing the rows from the 'Active' sheet.
+   */
+  function populateAdminTable(data) {
+    setLoading(false, true);
+    activeDownloadsTableBody.innerHTML = ''; // Clear existing table data
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      activeDownloadsTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No active downloads.</td></tr>';
+      return;
+    }
+    
+    data.forEach(row => {
+      // Defensive check to ensure the row is a valid array with expected data.
+      if (Array.isArray(row)) {
+        const tr = document.createElement('tr');
+        // Handle potential invalid date strings gracefully.
+        const createdDate = row[3] ? new Date(row[3]).toLocaleString() : 'N/A';
+        const code = row[0] || '';
+        const fileName = row[1] || '';
+        tr.innerHTML = `<td>${code}</td><td>${fileName}</td><td>${createdDate}</td>`;
+        activeDownloadsTableBody.appendChild(tr);
+      }
+    });
+  }
+  
+  /**
+   * On receiving the download URL, initiates the download and resets the UI.
+   * This version uses a programmatic link with `target="_top"` to ensure it works
+   * reliably on all browsers, especially mobile Safari in an iframe.
+   * @param {{success: boolean, downloadUrl: string}|{success: boolean, error: string}} response - The server response.
+   */
+  function handleDownloadSuccess(response) {
+    setLoading(false);
+    if (response.success) {
+      showMessage('Your download will begin shortly...', 'success');
+      
+      const link = document.createElement('a');
+      link.href = response.downloadUrl;
+      link.setAttribute('download', ''); // Hint to download
+      
+      // CRITICAL: This forces the action into the top-level window, breaking out of the iframe
+      // and preventing mobile Safari from blocking the download.
+      link.target = '_top';
+      
+      // The link must be in the DOM to be clickable.
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link); // Clean up the DOM.
+
+      // After a delay, reset the form for the next user.
+      setTimeout(() => {
+        showView('user');
+        codeForm.reset();
+      }, 3000);
+    } else {
+      showMessage(response.error, 'error');
+    }
+  }
+
+  // After adding a new download, shows a success message and reloads the admin data.
+  function handleAddDownloadSuccess(response) {
+    setLoading(false, true);
+    if (response.success) {
+      showAdminMessage(`Successfully created new download with code: ${response.newCode}`, 'success');
+      addDownloadForm.reset();
+      loadAdminData(); // Refresh the table with the new entry
+    } else {
+      showAdminMessage(response.error, 'error');
+    }
+  }
+
+  // Generic failure handler for all google.script.run calls.
+  function handleFailure(error) {
+    setLoading(false);
+    setLoading(false, true); // Reset both user and admin buttons
+    showMessage('An unexpected error occurred: ' + error.message, 'error');
+    showAdminMessage('An unexpected error occurred: ' + error.message, 'error');
+  }
+
+  // --- UI Helper Functions ---
+
+  /**
+   * Manages which view is visible to the user (e.g., code entry, admin login, dashboard).
+   * @param {string} viewName - The name of the view to display.
+   */
+  function showView(viewName) {
+    // Hide all messages and views first to ensure a clean slate
+    messageDiv.classList.add('hidden');
+    adminMessage.classList.add('hidden');
+    userView.classList.add('hidden');
+    adminPasswordView.classList.add('hidden');
+    fileReadyView.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    document.getElementById('main-container').classList.remove('hidden');
+
+    // Show the requested view
+    if (viewName === 'user') userView.classList.remove('hidden');
+    if (viewName === 'adminPassword') adminPasswordView.classList.remove('hidden');
+    if (viewName === 'fileReady') fileReadyView.classList.remove('hidden');
+    if (viewName === 'adminDashboard') {
+      adminDashboard.classList.remove('hidden');
+      document.getElementById('main-container').classList.add('hidden');
+    }
+  }
+
+  /**
+   * Displays a feedback message to the user. Uses classList for robust state management.
+   * @param {string} msg - The message to display.
+   * @param {string} type - The type of message ('error' or 'success').
+   */
+  function showMessage(msg, type) {
+    messageDiv.textContent = msg;
+    messageDiv.className = 'message'; // Reset to base class first
+    messageDiv.classList.add(type);  // Add the specific type class
+    messageDiv.classList.remove('hidden'); // Make the message visible
+  }
+  
+  /**
+   * Displays a feedback message on the admin panel. Hides automatically after a delay.
+   * @param {string} msg - The message to display.
+   * @param {string} type - The type of message ('error' or 'success').
+   */
+  function showAdminMessage(msg, type) {
+    adminMessage.textContent = msg;
+    adminMessage.className = 'message';
+    adminMessage.classList.add(type);
+    adminMessage.classList.remove('hidden');
+
+    // Hide after a few seconds to prevent it from sticking around
+    setTimeout(() => adminMessage.classList.add('hidden'), 5000);
+  }
+
+  /**
+   * Toggles the loading state of the primary visible button to prevent double-clicks.
+   * @param {boolean} isLoading - Whether to show the loading state.
+   * @param {boolean} [isAdmin=false] - Whether to target an admin button.
+   */
+  function setLoading(isLoading, isAdmin = false) {
+    // Select the correct button based on the current view and context
+    const button = isAdmin 
+      ? document.querySelector('#addDownloadForm button') 
+      : document.querySelector('#main-container form button:not([style*="display: none"]), #fileReadyView button');
+    
+    if (button) {
+      button.disabled = isLoading;
+      // Set appropriate loading/default text based on the button's purpose
+      if (isLoading) {
+        button.textContent = 'Loading...';
+      } else {
+        if (button.id === 'downloadButton') button.textContent = 'Download File';
+        else if (isAdmin) button.textContent = 'Create New Download';
+        else if (button.form.id === 'adminPasswordForm') button.textContent = 'Login';
+        else button.textContent = 'Submit';
+      }
+    }
+  }
+</script>
+
+</body>
+</html>
